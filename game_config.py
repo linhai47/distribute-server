@@ -17,7 +17,7 @@ DEBUG_HIT = False
 MAX_PROJECTILES = 50
 
 MAX_JUMP_COUNT = 2
-MOVEMENT_MULTIPLIER = 0.2
+MOVEMENT_MULTIPLIER = 0.5
 
 # -----------------------------
 # Simplified map / collision
