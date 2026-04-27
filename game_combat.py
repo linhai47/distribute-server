@@ -12,7 +12,7 @@ from game_config import (
     WEAPON_DB,
     KNOCKBACK_SCALE,
     HITSTUN_BASE_TICKS,
-    HITSTUN_PERCENT_FACTOR_TO_TICKS,
+    HITSTUN_PERCENT_FACTOR_TO_TICKS,MAX_PROJECTILES,
 )
 
 # Debug switches are optional.

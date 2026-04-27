@@ -892,7 +892,7 @@ class RelayServer:
             self.cleanup_dead_loots_for_room(session.room_id)
         
             self.tick += 1
-
+           
             await self.broadcast_snapshot(
                 session.room_id,
                 reject_reason_by_socket={websocket: reject_reason},
@@ -1129,6 +1129,13 @@ class RelayServer:
         # ------------------------------------------------------------
 
         self.tick += 1
+        if self.tick % 20 == 0:
+                print(
+                f"[PERF] tick={self.tick} "
+                f"projectiles={len(self.combat.projectiles)} "
+                f"events={len(self.combat.pending_events)} "
+                f"sessions={len(self.sessions)}"
+            )
         if DEBUG_INPUT:
             print(
             f"[INPUT] client={session.client_id} seq={cmd.seq} "
@@ -1687,3 +1694,5 @@ class RelayServer:
     @staticmethod
     def utc_now_iso() -> str:
         return datetime.now(timezone.utc).isoformat()
+    
+    
