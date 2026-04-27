@@ -29,7 +29,7 @@ PLAYER_HALF_HEIGHT = 0.42
 # -----------------------------
 # Unified movement parameters
 # -----------------------------
-SIM_DT = 0.05
+SIM_DT = 0.02
 MOVE_SPEED = 16.0 * MOVEMENT_MULTIPLIER
 
 GRAVITY = -2.0 * MOVEMENT_MULTIPLIER
