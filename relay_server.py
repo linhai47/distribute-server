@@ -1130,11 +1130,27 @@ class RelayServer:
 
         self.tick += 1
         if self.tick % 20 == 0:
-                print(
+            room_id = session.room_id
+            room_peers = len(self.rooms.get(room_id, set())) if room_id else 0
+
+            active_sessions = 0
+            same_room_sessions = 0
+
+            for s in self.sessions.values():
+                if s.client_id is not None:
+                    active_sessions += 1
+
+                if s.room_id == room_id and s.client_id is not None:
+                    same_room_sessions += 1
+
+            print(
                 f"[PERF] tick={self.tick} "
                 f"projectiles={len(self.combat.projectiles)} "
                 f"events={len(self.combat.pending_events)} "
-                f"sessions={len(self.sessions)}"
+                f"sessions={len(self.sessions)} "
+                f"activeSessions={active_sessions} "
+                f"sameRoomSessions={same_room_sessions} "
+                f"roomPeers={room_peers}"
             )
         if DEBUG_INPUT:
             print(
