@@ -1577,14 +1577,28 @@ class RelayServer:
     async def send_snapshot(self, websocket: Any, session: ClientSession, reject_reason: str) -> None:
         snapshot = self.build_snapshot_payload(session, reject_reason)
 
+        payload_text = json.dumps(snapshot, ensure_ascii=False)
+
         response = {
             "type": TYPE_SNAPSHOT,
             "roomId": session.room_id,
             "clientId": session.client_id,
-            "payload": json.dumps(snapshot, ensure_ascii=False),
+            "payload": payload_text,
         }
 
-        await self.send_json(websocket, response)
+        msg_text = json.dumps(response, ensure_ascii=False)
+
+        if self.tick % 20 == 0:
+            print(
+                f"[SNAPSHOT SIZE] tick={self.tick} "
+                f"client={session.client_id} "
+                f"payloadBytes={len(payload_text.encode('utf-8'))} "
+                f"msgBytes={len(msg_text.encode('utf-8'))} "
+                f"projectiles={len(self.combat.projectiles)} "
+                f"events={len(self.combat.pending_events)}"
+            )
+
+        await websocket.send(msg_text)
 
     async def broadcast_snapshot(
         self,
