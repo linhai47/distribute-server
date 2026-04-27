@@ -52,6 +52,9 @@ from game_config import (
     DEBUG_LOOT,
     DEBUG_ROOM,
     DEBUG_CONNECTION,
+    SNAPSHOT_THROTTLE_ENABLED,
+    SNAPSHOT_INTERVAL_TICKS,
+    SNAPSHOT_FORCE_BROADCAST_ON_EVENTS,
 )
 from game_models import ClientSession, InputPayload, Platform, ServerLoot
 
@@ -800,6 +803,47 @@ class RelayServer:
 
         return True
     
+    async def maybe_broadcast_snapshot(
+        self,
+        room_id: str,
+        websocket: Any,
+        reject_reason: str = "",
+    ) -> None:
+        """
+        根据配置决定是否广播 snapshot。
+
+        旧逻辑：
+            每个 INPUT 都 broadcast_snapshot。
+
+        新逻辑：
+            SNAPSHOT_THROTTLE_ENABLED = True 时，
+            每 SNAPSHOT_INTERVAL_TICKS 个 tick 才广播一次。
+
+        注意：
+            pending_events 只有在真正广播后才 clear，
+            避免事件还没发给客户端就被清掉。
+        """
+        if not room_id:
+            return
+
+        should_broadcast = True
+
+        if SNAPSHOT_THROTTLE_ENABLED:
+            interval = max(1, int(SNAPSHOT_INTERVAL_TICKS))
+            should_broadcast = (self.tick % interval == 0)
+
+        if SNAPSHOT_FORCE_BROADCAST_ON_EVENTS and len(self.combat.pending_events) > 0:
+            should_broadcast = True
+
+        if not should_broadcast:
+            return
+
+        await self.broadcast_snapshot(
+            room_id,
+            reject_reason_by_socket={websocket: reject_reason},
+        )
+
+        self.combat.clear_events()
     async def handle_input(self, websocket: Any, data: Dict[str, Any]) -> None:
         session = self.sessions.get(websocket)
 
@@ -876,7 +920,7 @@ class RelayServer:
                     f"stocks={session.stocks}"
                 )
 
-            # 死亡等待期间，世界上的子弹/近战还是继续模拟
+            # 死亡等待期间，世界上的子弹/近战/空投还是继续模拟
             self.combat.step_projectiles(self.sessions, self.tick)
             self.combat.step_melee_hitboxes(self.sessions, self.tick)
 
@@ -884,24 +928,26 @@ class RelayServer:
             self.step_loots_for_room(session.room_id)
             self.check_loot_pickups_for_room(session.room_id)
             self.cleanup_dead_loots_for_room(session.room_id)
-        
+
             self.tick += 1
-           
-            await self.broadcast_snapshot(
+
+            await self.maybe_broadcast_snapshot(
                 session.room_id,
-                reject_reason_by_socket={websocket: reject_reason},
+                websocket,
+                reject_reason,
             )
 
-            self.combat.clear_events()
             return
 
         # ------------------------------------------------------------
         # 1) 同步客户端携带的当前武器 / 效果 / 瞄准方向
         # ------------------------------------------------------------
 
+        # 目前武器/效果由服务器拾取逻辑控制，所以这里暂时不信任客户端上报。
+        # 如果后面要允许客户端选择武器，再打开下面两行。
         # if cmd.equipped_weapon_id:
         #     session.equipped_weapon_id = cmd.equipped_weapon_id
-
+        #
         # session.equipped_effect_ids = list(cmd.equipped_effect_ids)
 
         session.aim_x = cmd.aim_x
@@ -1040,30 +1086,17 @@ class RelayServer:
                 session.accepted_state = "Fall"
 
         # ------------------------------------------------------------
-       # ------------------------------------------------------------
         # 9) projectile / melee / loot simulation
         # ------------------------------------------------------------
 
-        # 子弹模拟
         self.combat.step_projectiles(self.sessions, self.tick)
-
-        # 近战 hitbox 模拟
         self.combat.step_melee_hitboxes(self.sessions, self.tick)
 
-        # 空投生成
         self.maybe_spawn_loot_for_room(session.room_id)
-
-        # 空投下落
-        # 关键：服务器现在负责空投从天上掉下来，
-        # 如果这里不调用，空投会一直停在 LOOT_SPAWN_Y，看起来像没出现。
         self.step_loots_for_room(session.room_id)
-
-        # 空投拾取检测
-        # 只有 landed=True 的空投才能被捡，取决于 LOOT_PICKUP_ONLY_WHEN_LANDED。
         self.check_loot_pickups_for_room(session.room_id)
-
-        # 清理已经被捡走 / 死亡的空投
         self.cleanup_dead_loots_for_room(session.room_id)
+
         # ------------------------------------------------------------
         # 10) blast zone / stock handling
         # ------------------------------------------------------------
@@ -1123,6 +1156,7 @@ class RelayServer:
         # ------------------------------------------------------------
 
         self.tick += 1
+
         if self.tick % 20 == 0:
             room_id = session.room_id
             room_peers = len(self.rooms.get(room_id, set())) if room_id else 0
@@ -1146,29 +1180,28 @@ class RelayServer:
                 f"sameRoomSessions={same_room_sessions} "
                 f"roomPeers={room_peers}"
             )
+
         if DEBUG_INPUT:
             print(
-            f"[INPUT] client={session.client_id} seq={cmd.seq} "
-            f"inputX={cmd.move_x:.2f} velX={session.vel_x:.2f} "
-            f"attackPressed={cmd.attack_pressed} attackHeld={cmd.attack_held} attackReleased={cmd.attack_released} "
-            f"weapon={session.equipped_weapon_id} effects={session.equipped_effect_ids} "
-            f"inHitstun={in_hitstun} hitstunUntil={getattr(session, 'hitstun_until_tick', -1)} "
-            f"state={session.accepted_state} grounded={session.accepted_grounded} "
-            f"jumpCount={session.accepted_jump_count} drop={session.accepted_drop} "
-            f"stocks={session.stocks} dead={session.is_dead} respawnAt={getattr(session, 'respawn_at_tick', -1)} "
-            f"pos=({session.pos_x:.2f},{session.pos_y:.2f}) "
-            f"vel=({session.vel_x:.2f},{session.vel_y:.2f}) reject={reject_reason} "
-            f"deltaX={(cmd.client_pos_x - session.pos_x):.3f}"
+                f"[INPUT] client={session.client_id} seq={cmd.seq} "
+                f"inputX={cmd.move_x:.2f} velX={session.vel_x:.2f} "
+                f"attackPressed={cmd.attack_pressed} attackHeld={cmd.attack_held} attackReleased={cmd.attack_released} "
+                f"weapon={session.equipped_weapon_id} effects={session.equipped_effect_ids} "
+                f"inHitstun={in_hitstun} hitstunUntil={getattr(session, 'hitstun_until_tick', -1)} "
+                f"state={session.accepted_state} grounded={session.accepted_grounded} "
+                f"jumpCount={session.accepted_jump_count} drop={session.accepted_drop} "
+                f"stocks={session.stocks} dead={session.is_dead} respawnAt={getattr(session, 'respawn_at_tick', -1)} "
+                f"pos=({session.pos_x:.2f},{session.pos_y:.2f}) "
+                f"vel=({session.vel_x:.2f},{session.vel_y:.2f}) reject={reject_reason} "
+                f"deltaX={(cmd.client_pos_x - session.pos_x):.3f}"
             )
 
-        await self.broadcast_snapshot(
+        await self.maybe_broadcast_snapshot(
             session.room_id,
-            reject_reason_by_socket={websocket: reject_reason},
+            websocket,
+            reject_reason,
         )
-
-        self.combat.clear_events()
-
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     # Snapshot
     # ------------------------------------------------------------------
     def get_room_loots(self, room_id: str) -> dict:

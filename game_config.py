@@ -14,6 +14,25 @@ DEBUG_ATTACK = False
 DEBUG_PROJECTILE = False
 DEBUG_HIT = False
 
+# -----------------------------
+# Snapshot broadcast throttle
+# -----------------------------
+# True  = 按 SNAPSHOT_INTERVAL_TICKS 降频广播
+# False = 每 tick 都广播，恢复旧逻辑
+SNAPSHOT_THROTTLE_ENABLED = True
+
+# 每多少个 server tick 广播一次 snapshot。
+# 1 = 每 tick 广播
+# 2 = 每 2 tick 广播
+# 3 = 每 3 tick 广播
+SNAPSHOT_INTERVAL_TICKS = 2
+
+# 是否遇到事件时强制立即广播。
+# 测带宽时建议 False。
+# 如果你发现命中/拾取/爆炸事件延迟明显，可以改 True。
+SNAPSHOT_FORCE_BROADCAST_ON_EVENTS = False
+
+
 MAX_PROJECTILES = 50
 
 MAX_JUMP_COUNT = 2
@@ -30,7 +49,7 @@ PLAYER_HALF_HEIGHT = 0.42
 # Unified movement parameters
 # -----------------------------
 SIM_DT = SIM_DT = 1.0 / 30.0
-MOVE_SPEED = 24.0 * MOVEMENT_MULTIPLIER
+MOVE_SPEED = 16.0 * MOVEMENT_MULTIPLIER
 
 GRAVITY = -2.0 * MOVEMENT_MULTIPLIER
 JUMP_VELOCITY = 30.0 * MOVEMENT_MULTIPLIER
