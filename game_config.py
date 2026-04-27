@@ -17,7 +17,7 @@ DEBUG_HIT = False
 MAX_PROJECTILES = 50
 
 MAX_JUMP_COUNT = 2
-MOVEMENT_MULTIPLIER = 0.2
+MOVEMENT_MULTIPLIER = 0.3
 
 # -----------------------------
 # Simplified map / collision
@@ -29,7 +29,7 @@ PLAYER_HALF_HEIGHT = 0.42
 # -----------------------------
 # Unified movement parameters
 # -----------------------------
-SIM_DT = 0.05
+SIM_DT = SIM_DT = 1.0 / 30.0
 MOVE_SPEED = 16.0 * MOVEMENT_MULTIPLIER
 
 GRAVITY = -2.0 * MOVEMENT_MULTIPLIER
