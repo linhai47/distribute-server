@@ -1,13 +1,18 @@
 HOST = "0.0.0.0"
 PORT = 8765
-
+# relay_server 相关
 DEBUG_INPUT = False
 DEBUG_ATTACK = False
-DEBUG_PROJECTILE = False
-DEBUG_LOOT = True
+
+DEBUG_LOOT = False
 DEBUG_ROOM = True
 DEBUG_CONNECTION = True
 
+# game_combat 相关
+DEBUG_COMBAT_WARN = False
+DEBUG_ATTACK = False
+DEBUG_PROJECTILE = False
+DEBUG_HIT = False
 
 MAX_JUMP_COUNT = 2
 MOVEMENT_MULTIPLIER = 0.2
