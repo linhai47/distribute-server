@@ -249,7 +249,8 @@ class CombatRuntime:
 
             shot_dir_x = math.cos(angle_rad)
             shot_dir_y = math.sin(angle_rad)
-
+            if len(self.projectiles) >= MAX_PROJECTILES:
+                return
             self._spawn_one_projectile(
                 owner_client_id=owner.client_id,
                 weapon_id=owner.equipped_weapon_id,
@@ -396,7 +397,8 @@ class CombatRuntime:
 
         bullet_id = self.normalize_special_bullet_id(bullet_id)
         bullet_cfg = self.get_bullet_cfg(bullet_id)
-
+        if len(self.projectiles) >= MAX_PROJECTILES:
+            return
         if not visual_id:
             visual_id = self.resolve_visual_id(bullet_id, bullet_cfg)
 
@@ -405,7 +407,7 @@ class CombatRuntime:
                 rotation_deg = 0.0
             else:
                 rotation_deg = math.degrees(math.atan2(vel_y, vel_x))
-
+  
         proj = ServerProjectile(
             proj_id=self.next_projectile_id,
             owner_client_id=owner_client_id,

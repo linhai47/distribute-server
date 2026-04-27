@@ -448,6 +448,8 @@ class RelayServer:
         # 4) 如果同一个 ClientId 已经有旧 websocket，占位替换
         # ------------------------------------------------------------
 
+                old_player = players.get(assigned_client_id)
+
         old_player = players.get(assigned_client_id)
 
         if old_player is not None:
@@ -456,26 +458,21 @@ class RelayServer:
             if old_ws is not None and old_ws is not websocket:
                 print(
                     f"[JOIN REPLACE] room={room_id} status={room_status} "
-                    f"client={assigned_client_id} old websocket replaced"
+                    f"client={assigned_client_id} old websocket will be closed"
                 )
 
-                old_members = self.rooms.get(room_id)
-                if old_members is not None:
-                    old_members.discard(old_ws)
-
-                old_session = self.sessions.get(old_ws)
-                if old_session is not None:
-                    old_session.room_id = None
-                    old_session.client_id = None
-                    old_session.last_seq = -1
+                await self.close_and_forget_socket(
+                    old_ws,
+                    reason=f"replaced by {assigned_client_id}"
+                )
 
         # ------------------------------------------------------------
         # 5) 保险：清掉同房间同 ClientId 的幽灵 session
         # ------------------------------------------------------------
 
-        for other_ws, other_session in list(self.sessions.items()):
-            if other_ws is websocket:
-                continue
+            for other_ws, other_session in list(self.sessions.items()):
+                if other_ws is websocket:
+                    continue
 
             if (
                 other_session.room_id == room_id
@@ -483,16 +480,13 @@ class RelayServer:
             ):
                 print(
                     f"[JOIN CLEAN GHOST] room={room_id} status={room_status} "
-                    f"client={assigned_client_id} remove ghost session"
+                    f"client={assigned_client_id} ghost websocket will be closed"
                 )
 
-                other_session.room_id = None
-                other_session.client_id = None
-                other_session.last_seq = -1
-
-                members = self.rooms.get(room_id)
-                if members is not None:
-                    members.discard(other_ws)
+                await self.close_and_forget_socket(
+                    other_ws,
+                    reason=f"ghost {assigned_client_id}"
+                )
 
         # ------------------------------------------------------------
         # 6) 清掉当前 websocket 曾经占用的其他 player key
@@ -1598,6 +1592,7 @@ class RelayServer:
         reject_reason_by_socket: Optional[Dict[Any, str]] = None,
     ) -> None:
         peers = list(self.rooms.get(room_id, set()))
+        tasks = []
 
         for peer in peers:
             session = self.sessions.get(peer)
@@ -1610,7 +1605,18 @@ class RelayServer:
             if reject_reason_by_socket is not None:
                 reject_reason = reject_reason_by_socket.get(peer, "")
 
-            await self.send_snapshot(peer, session, reject_reason)
+            tasks.append(
+                self.send_snapshot(peer, session, reject_reason)
+            )
+
+        if not tasks:
+            return
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, Exception):
+                print(f"[SNAPSHOT SEND WARN] {result}")
 
     # ------------------------------------------------------------------
     # Chat / cleanup / utils
@@ -1666,6 +1672,50 @@ class RelayServer:
 
         self.sessions.pop(websocket, None)
 
+        print(
+            f"[CLEANUP] client={client_id} room={room_id} "
+            f"reason={reason} sessions={len(self.sessions)}"
+        )
+    async def close_and_forget_socket(self, websocket: Any, reason: str = "replaced") -> None:
+        """
+        主动关闭并遗忘一个旧 websocket。
+        用于 JOIN REPLACE / CLEAN GHOST。
+        否则旧连接会一直留在 self.sessions 里，sessions 数量越跑越怪。
+        """
+        if websocket is None:
+            return
+
+        old_session = self.sessions.get(websocket)
+        old_room_id = old_session.room_id if old_session is not None else None
+        old_client_id = old_session.client_id if old_session is not None else None
+
+        if old_room_id:
+            self.remove_from_room(websocket, old_room_id)
+
+            room_state = self.room_states.get(old_room_id)
+            if room_state is not None:
+                players = room_state.get("players", {})
+                for cid in list(players.keys()):
+                    if players[cid].get("websocket") is websocket:
+                        players.pop(cid, None)
+
+        if old_session is not None:
+            old_session.room_id = None
+            old_session.client_id = None
+            old_session.last_seq = -1
+
+        self.sessions.pop(websocket, None)
+
+        try:
+            await websocket.close(code=4000, reason=reason)
+        except Exception:
+            pass
+
+        print(
+            f"[FORGET SOCKET] reason={reason} "
+            f"oldClient={old_client_id} oldRoom={old_room_id} "
+            f"sessions={len(self.sessions)}"
+        )
     def remove_from_room(self, websocket: Any, room_id: str) -> None:
         members = self.rooms.get(room_id)
 
