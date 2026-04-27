@@ -47,6 +47,11 @@ from game_config import (
     LOOT_HALF_HEIGHT,
     LOOT_DROP_PLATFORM_MARGIN,
     LOOT_PICKUP_ONLY_WHEN_LANDED,
+    DEBUG_INPUT,
+    DEBUG_ATTACK,
+    DEBUG_LOOT,
+    DEBUG_ROOM,
+    DEBUG_CONNECTION,
 )
 from game_models import ClientSession, InputPayload, Platform, ServerLoot
 
@@ -788,16 +793,16 @@ class RelayServer:
             return False
 
         session.last_attack_tick = self.tick
-
-        print(
-            f"[SERVER ATTACK ALLOWED] "
-            f"client={session.client_id} "
-            f"weapon={weapon_id} "
-            f"pressed={cmd.attack_pressed} "
-            f"held={cmd.attack_held} "
-            f"interval={fire_interval_ticks} "
-            f"elapsed={elapsed}"
-        )
+        if DEBUG_ATTACK:
+            print(
+                f"[SERVER ATTACK ALLOWED] "
+                f"client={session.client_id} "
+                f"weapon={weapon_id} "
+                f"pressed={cmd.attack_pressed} "
+                f"held={cmd.attack_held} "
+                f"interval={fire_interval_ticks} "
+                f"elapsed={elapsed}"
+            )
 
         return True
     
@@ -1124,8 +1129,8 @@ class RelayServer:
         # ------------------------------------------------------------
 
         self.tick += 1
-
-        print(
+        if DEBUG_INPUT:
+            print(
             f"[INPUT] client={session.client_id} seq={cmd.seq} "
             f"inputX={cmd.move_x:.2f} velX={session.vel_x:.2f} "
             f"attackPressed={cmd.attack_pressed} attackHeld={cmd.attack_held} attackReleased={cmd.attack_released} "
@@ -1137,7 +1142,7 @@ class RelayServer:
             f"pos=({session.pos_x:.2f},{session.pos_y:.2f}) "
             f"vel=({session.vel_x:.2f},{session.vel_y:.2f}) reject={reject_reason} "
             f"deltaX={(cmd.client_pos_x - session.pos_x):.3f}"
-        )
+            )
 
         await self.broadcast_snapshot(
             session.room_id,
