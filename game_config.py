@@ -25,7 +25,7 @@ SNAPSHOT_THROTTLE_ENABLED = True
 # 1 = 每 tick 广播
 # 2 = 每 2 tick 广播
 # 3 = 每 3 tick 广播
-SNAPSHOT_INTERVAL_TICKS = 3
+SNAPSHOT_INTERVAL_TICKS = 2
 
 # 是否遇到事件时强制立即广播。
 # 测带宽时建议 False。
@@ -36,7 +36,7 @@ SNAPSHOT_FORCE_BROADCAST_ON_EVENTS = False
 MAX_PROJECTILES = 50
 
 MAX_JUMP_COUNT = 2
-MOVEMENT_MULTIPLIER = 0.3
+MOVEMENT_MULTIPLIER = 0.5
 
 # -----------------------------
 # Simplified map / collision
@@ -49,7 +49,7 @@ PLAYER_HALF_HEIGHT = 0.42
 # Unified movement parameters
 # -----------------------------
 SIM_DT = SIM_DT = 1.0 / 30.0
-MOVE_SPEED = 16.0 * MOVEMENT_MULTIPLIER
+MOVE_SPEED = 32.0 * MOVEMENT_MULTIPLIER
 
 GRAVITY = -2.0 * MOVEMENT_MULTIPLIER
 JUMP_VELOCITY = 30.0 * MOVEMENT_MULTIPLIER
@@ -186,21 +186,21 @@ WEAPON_DB = {
     "手枪": {
         "attack_mode": "ranged",
         "bullet_id": "普通子弹",
-        "fire_interval_ticks": 10,
+        "fire_interval_ticks": 15,
         "auto_fire": True,
     },
 
     "狙击枪": {
         "attack_mode": "ranged",
         "bullet_id": "狙击子弹",
-        "fire_interval_ticks": 35,
+        "fire_interval_ticks": 55,
         "auto_fire": True,
     },
 
     "重机枪": {
         "attack_mode": "ranged",
         "bullet_id": "机枪子弹",
-        "fire_interval_ticks": 3,
+        "fire_interval_ticks": 6,
         "auto_fire": True,
     },
 
